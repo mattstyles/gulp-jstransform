@@ -1,3 +1,4 @@
+var path = require( 'path' );
 var es = require('event-stream');
 var gutil = require('gulp-util');
 var Buffer = require('buffer').Buffer;
@@ -7,13 +8,22 @@ module.exports = function(opt){
   function modifyFile(file){
     if (file.isNull()){
       return this.emit('data', file); // pass along
-    } 
+    }
     if (file.isStream()){
       return this.emit('error', new Error("gulp-jstransfrom: Streaming not supported"));
-    } 
+    }
     // Influenced by https://github.com/stoyan/etc/master/es6r/es6r.js
     var str = file.contents.toString('utf8');
     var visitors = [];
+
+    // Quick dirty add optional visitors
+    // @TODO needs to check visitor exists
+    if ( opt && opt.visitors ) {
+        opt.visitors.forEach( function( visitor ) {
+            visitors = visitors.concat( require( path.join( 'jstransform/visitors', visitor ) ).visitorList );
+        });
+    }
+
     [
       require('jstransform/visitors/es6-arrow-function-visitors'),
       require('jstransform/visitors/es6-class-visitors'),
@@ -24,7 +34,7 @@ module.exports = function(opt){
     ].forEach(function(visitor) {
       visitors = visitors.concat(visitor.visitorList);
     });
-   
+
     var converted = jstransform.transform(visitors, str);
     file.contents = new Buffer(converted.code);
     this.emit('data', file);
